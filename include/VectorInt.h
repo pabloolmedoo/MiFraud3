@@ -43,7 +43,7 @@ public:
      * @param orig the VectorInt object used as source for the copy. Input
      * parameter
      */
-    VectorInt(VectorInt orig);
+    VectorInt(const VectorInt &orig);
     
     /**
      * @brief Destructor
@@ -101,7 +101,7 @@ public:
      * Query method
      * @return string with information about this VectorInt object
      */
-    std::string toString();
+    std::string toString() const;
 
     /**
      * @brief Gets the Euclidean distance between this and the provided object.
@@ -155,7 +155,7 @@ public:
      * given position is not valid.
      * @return A const reference to the integer element at the given position
      */
-    int at(int pos);
+    const int &at(int pos) const;
     
     /**
      * @brief Gets a reference to the integer element at the given position. 
@@ -165,7 +165,7 @@ public:
      * given position is not valid
      * @return A reference to the integer element at the given position.
      */
-    int at(int pos);
+    int &at(int pos);
     
 private:
     /**

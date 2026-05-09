@@ -44,7 +44,7 @@ public:
      * @param orig the VectorLocation object used as source for the copy. 
      * Input parameter
      */
-    VectorLocation(VectorLocation orig);
+    VectorLocation(const VectorLocation &orig);
     
     /**
      * @brief Destructor
