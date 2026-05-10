@@ -25,19 +25,30 @@
  * @param size The size for the vector of Location in this object. Input
  * parameter
  */
-VectorLocation::VectorLocation(int size);
+VectorLocation::VectorLocation(int size){
+    if(size < 0){
+        throw std::out_of_range("VectorLocation size out of range");
+    }
+    _size = size;
+    _capacity = size;
+    ReservarMemoria();
+}
 
 /**
  * @brief Copy constructor
  * @param orig the VectorLocation object used as source for the copy. 
  * Input parameter
  */
-VectorLocation::VectorLocation(const VectorLocation &orig);
+VectorLocation::VectorLocation(const VectorLocation &orig){
+    Copiar(orig);
+}
 
 /**
  * @brief Destructor
  */
-VectorLocation::~VectorLocation(){}
+VectorLocation::~VectorLocation(){
+    LiberarMemoria();
+}
 
 /**
  * @brief Overloading of the assignment operator for VectorLocation class
@@ -46,21 +57,31 @@ VectorLocation::~VectorLocation(){}
  * Input parameter
  * @return A reference to this object
  */
-VectorLocation operator=(VectorLocation orig){}
+VectorLocation &VectorLocation::operator=(const VectorLocation &orig){
+    if(this != &orig){
+        LiberarMemoria();
+        Copiar(orig);
+    }
+    return *this;
+}
 
 /**
  * @brief Gets the number of elements in the vector of this object
  * Query method
  * @return The number of elements
  */
-int VectorLocation::getSize() const{}
+int VectorLocation::getSize() const{
+    return _size;
+}
 
 /**
  * @brief Gets the capacity of the vector in this object
  * Query method
  * @return The capacity of the vector in this object
  */
-int VectorLocation::getCapacity() const{}
+int VectorLocation::getCapacity() const{
+    return _capacity;
+}
 
 /**
  * @brief Obtains a string with information about this VectorLocation object, 
@@ -104,15 +125,15 @@ std::string VectorLocation::toString() const{
  * was found. Otherwise it returns -1
  */
 int VectorLocation::findLocation(const Location& location) const{
-    for (int i = 0; i < _size; i++)
+    int pos = -1;
+    for (int i = 0; i < _size && pos == -1; i++)
     {
         if (_locations[i].getName() == location.getName())
         {
-            //Esto hay que cambiarlo
-            return i;
+            pos = i;
         }
     }
-    return -1;
+    return pos;
 }
 
 /**
@@ -144,10 +165,6 @@ VectorLocation VectorLocation::select(const Location & bottomLeft,
  * Modifier method
  */
 void VectorLocation::clear(){
-    for (int i = 0; i < _size; i++)
-    {
-        _locations[i].set(0, 0, " ");
-    }
     _size = 0;
 }
 
@@ -199,20 +216,17 @@ Location &VectorLocation::at(int pos){
  * in this object)
  */
 bool VectorLocation::append(const Location& location){
-    if (findLocation(location) != -1)
-    {
-        return false;
-    }
+    bool insertado = false;
 
-    if (_size >= DIM_VECTOR_LOCATIONS)
-    {
-        throw std::out_of_range("append: el vector esta completo3");
+    if(findLocation(location) == -1 || location.getName() == ""){
+        if(_size == _capacity){
+            Redimensionar();
+        }
+        _locations[_size] = location;
+        _size++;
+        insertado = true;
     }
-
-    _locations[_size]=location;
-    
-    _size++;
-    return true;
+    return insertado;
 }
 
 /**
@@ -227,7 +241,7 @@ bool VectorLocation::append(const Location& location){
  * @param crimeSet A VectorLocation object. Input parameter
  */
 void VectorLocation::join(const VectorLocation& locations){
-     int resultado;
+    int resultado;
     for (int i = 0; i < locations.getSize(); i++)
     {
         resultado = findLocation(locations.at(i));
@@ -268,23 +282,21 @@ void VectorLocation::sort(){
  * location.
  * If returns -1 if this vector is empty
  */
-int VectorLocation::nearest(Location location){
+int VectorLocation::nearest(const Location &location)const{
     double minimo, distancia;
-    int num = 0;
-    if (_size <= 0)
+    int num = -1;
+    if (_size > 0)
     {
-        return -1;
-    }
-
-    minimo = location.distance(_locations[0]);
-
-    for (int i = 0; i < _size; i++)
-    {
-        distancia = location.distance(_locations[i]);
-        if (distancia < minimo)
+        minimo = location.distance(_locations[0]);
+        num = 0;
+        for (int i = 0; i < _size; i++)
         {
-            minimo = distancia;
-            num = i;
+            distancia = location.distance(_locations[i]);
+            if (distancia < minimo)
+            {
+                minimo = distancia;
+                num = i;
+            }
         }
     }
     return num;
@@ -295,7 +307,7 @@ int VectorLocation::nearest(Location location){
  * Modifier method
  * @param location A Location object. Input parameter
  */
-void VectorLocation::assign(Location location){
+void VectorLocation::assign(const Location &location){
     for (int i = 0; i < _size; i++)
     {
         _locations[i] = location;
@@ -317,7 +329,7 @@ void VectorLocation::assign(Location location){
  * number of Location read from the input stream is negative.
  * @param is Input stream. Input/output parameter
  */
-void VectorLocation::load(std::istream is){
+void VectorLocation::load(std::istream &is){
     Location data;
     int nlocs;
 
@@ -328,19 +340,42 @@ void VectorLocation::load(std::istream is){
         clear();
         throw std::out_of_range("El numero de localizaciones es negativo");
     }
-    if (nlocs > getCapacity())
-    {
-        clear();
-        throw std::out_of_range("El numero de ubicaciones es mas grande que la capacidad");
-    }
 
     clear();
     
-    _size = nlocs;
-
-    for (int i = 0; i < _size; i++)
+    for (int i = 0; i < nlocs; i++)
     {
         data.load(is);
-        _locations[i]=data;
+        append(data);
     }
+}
+
+void VectorLocation::LiberarMemoria(){
+    delete[] _locations;
+    _locations = nullptr;
+    _size = 0;
+    _capacity = 0;
+}
+
+void VectorLocation::ReservarMemoria(){
+    _locations = new Location[_capacity];
+}
+
+void VectorLocation::Copiar(const VectorLocation &otro){
+    _size = otro._size;
+    _capacity = otro._capacity;
+    ReservarMemoria();
+    for(int i = 0; i < otro._size; i++){
+        _locations[i] = otro._locations[i];
+    }
+}
+
+void VectorLocation::Redimensionar(){
+    _capacity += BLOCK_SIZE;
+    Location* auxiliar = new Location[_capacity];
+    for(int i = 0; i < _size; i++){
+        auxiliar[i] = _locations[i];
+    }
+    delete[] _locations;
+    _locations = auxiliar;
 }
