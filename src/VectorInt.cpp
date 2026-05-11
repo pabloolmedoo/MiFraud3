@@ -29,12 +29,15 @@
  * parameter
  */
 VectorInt::VectorInt(int size){
-    if (size < 0 || size > DIM_VECTOR_VALUES)
+    if (size < 0)
     {
         throw std::out_of_range("VectorInt size out of range");
     }
 
     _size = size;
+    _capacity = size;
+    ReservarMemoria();
+
     for (int i = 0; i < size; i++)
     {
         _values[i] = 0;
@@ -46,12 +49,16 @@ VectorInt::VectorInt(int size){
  * @param orig the VectorInt object used as source for the copy. Input
  * parameter
  */
-VectorInt::VectorInt(const VectorInt &orig);
+VectorInt::VectorInt(const VectorInt &orig){
+    Copiar(orig);
+}
 
 /**
  * @brief Destructor
  */
-~VectorInt();
+VectorInt::~VectorInt(){
+    LiberarMemoria();
+}
 
 /**
  * @brief Overloading of the assignment operator for VectorInt class
@@ -60,21 +67,31 @@ VectorInt::VectorInt(const VectorInt &orig);
  * parameter
  * @return A reference to this object
  */
-VectorInt operator=(VectorInt orig);
+VectorInt &VectorInt::operator=(const VectorInt &orig){
+    if(this != &orig){
+        LiberarMemoria();
+        Copiar(orig);
+    }
+    return *this;
+}
 
 /**
  * @brief Gets the number of elements in the vector of this object
  * Query method
  * @return The number of elements
  */
-int VectorInt::getSize(){}
+int VectorInt::getSize() const{
+    return _size;
+}
 
 /**
  * @brief Gets the capacity of the vector in this object
  * Query method
  * @return The capacity of the vector in this object
  */
-int VectorInt::getCapacity(){}
+int VectorInt::getCapacity() const{
+    return _capacity;
+}
 
 /**
  * @brief Compares the integer vectors of this object and the provided 
@@ -91,7 +108,7 @@ int VectorInt::getCapacity(){}
  * @return The number of identical elements in the vectors of this
  * and the provided object.
  */
-int VectorInt::countIdenticalElements(VectorInt other){
+int VectorInt::countIdenticalElements(const VectorInt &other){
     if (getSize() != other.getSize())
     {
         throw std::invalid_argument("VectorInt sizes are different");
@@ -148,15 +165,16 @@ std::string VectorInt::toString() const{
  * @param other A VectorInt. Input parameter
  * @return The Euclidean distance between this and the provided objects
  */
-double VectorInt::distance(VectorInt other){
-    if (getSize() != other.getSize())
-    {
-        throw std::invalid_argument("VectorInt sizes are different");
-    }
+double VectorInt::distance(const VectorInt &other){
     if (other.getSize() == 0)
     {
         throw std::invalid_argument("VectorInt size is zero");
     }
+    if (getSize() != other.getSize())
+    {
+        throw std::invalid_argument("VectorInt sizes are different");
+    }
+    
     double sum = 0.0;
     for (int i = 0; i < other.getSize(); i++)
     {
@@ -170,7 +188,7 @@ double VectorInt::distance(VectorInt other){
  * Modifier method
  * @param value An integer value. Input parameter
  */
-void VectorInt::assign(int value=0){
+void VectorInt::assign(int value){
     for (int i = 0; i < getSize(); i++)
     {
         _values[i] = value;
@@ -189,7 +207,7 @@ void VectorInt::assign(int value=0){
 void VectorInt::append(int value){
     if (getSize() >= getCapacity())
     {
-        throw std::out_of_range("VectorInt is full");
+        Redimensionar();
     }
     _values[getSize()] = value;
     _size++;
@@ -236,5 +254,35 @@ int &VectorInt::at(int pos){
         throw std::out_of_range("VectorInt position out of range");
     }
     return _values[pos];
+}
+
+void VectorInt::LiberarMemoria(){
+    delete[] _values;
+    _values = nullptr;
+    _size = 0;
+    _capacity = 0;
+}
+
+void VectorInt::ReservarMemoria(){
+    _values = new int[_capacity];
+}
+
+void VectorInt::Copiar(const VectorInt &otro){
+    _size = otro._size;
+    _capacity = otro._capacity;
+    ReservarMemoria();
+    for(int i = 0; i < otro._size; i++){
+        _values[i] = otro._values[i];
+    }
+}
+
+void VectorInt::Redimensionar(){
+    _capacity += BLOCK_SIZE;
+    int* auxiliar = new int[_capacity];
+    for(int i = 0; i < _size; i++){
+        auxiliar[i] = _values[i];
+    }
+    delete[] _values;
+    _values = auxiliar;
 }
 
