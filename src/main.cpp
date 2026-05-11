@@ -8,11 +8,16 @@
  * @author Silvia Acid Carrillo <acid@decsai.ugr.es>
  * @author Andrés Cano Utrera <acu@decsai.ugr.es>
  * @author Luis Castillo Vidal <L.Castillo@decsai.ugr.es>
- * 
+ *
  * Created on 24 de octubre de 2025, 9:27
  */
 
 #include <iostream>
+#include <string>
+#include <cstdlib>
+#include <cerrno>
+#include <climits>
+#include <exception>
 
 #include "DataSet.h"
 #include "Clustering.h"
@@ -21,75 +26,134 @@ using namespace std;
 
 /**
  * Shows help about the use of this program in the given output stream
- * @param outputStream The output stream where the help will be shown (for example,
- * cout, cerr, etc)
+ * @param outputStream The output stream where the help will be shown
  * @param message Additional message to show with the help
  */
-void showHelp(std::ostream& outputStream, const string &message) {
+void showHelp(ostream &outputStream, const string &message)
+{
     outputStream << "ERROR in Fraud3 parameters. " << message << endl;
-    outputStream << "Run with the following arguments:" << endl;
-    outputStream << "Fraud3 [-K <K>] [-o <outputFile.dts>] <inputFile.dts>" << 
-        endl;
+    outputStream << "Run with the following arguments: " << endl;
+    outputStream << "Fraud3 [-K <K>] [-o <outputFile.dts>] <inputFile.dts>" << endl;
     outputStream << endl;
-    outputStream << "Parameters:" << endl;
-    outputStream << "-K <K>: an integer with the number of clusters to use " << 
-        "(5 by default)" << endl;
-    outputStream << "-o <outputFile.dts>: name of the output dataset file " << 
-        "(tests/output/output.dts by default)" << endl;
+    outputStream << "Parameters: " << endl;
+    outputStream << "-K <K>: an integer with the number of clusters to use "
+                 << "(5 by default)" << endl;
+    outputStream << "-o <outputFile.dts>: name of the output dataset file "
+                 << "(tests/output/output.dts by default)" << endl;
     outputStream << "<inputFile.dts>: name of the input dataset file" << endl;
     outputStream << endl;
 }
 
 /**
- * The purpose of this program is to read a dataset from a dts file, to reduce 
- * its dimensionality using clustering, and to save the resulting dataset in 
- * another dts file.
- * 
- * The number of clusters K to be used in the clustering process can be provided
- * as an optional argument (if not provided, K=5 is used). 
- * The name of the output dts file can be provided to the program as an optional
- * argument (if not provided, the output file is tests/output/output.dts). 
- * The name of the input dts file is passed as the last argument to the program.
- * See below the Running sintax.
- * 
- * The program begins by processing the command line arguments. Then, it loads 
- * the input dataset from the given dts file. After that, it performs a  
- * clustering of the locations in the dataset using the K-means algorithm with
- * the provided K value. Then, using the calculated clustering, it obtains a new 
- * dataset with reduced dimensionality. Finally, it saves the resulting dataset 
- * in the given output dts file.
- * 
- * Running sintax:
- * > build/Fraud3 [-K <K>] [-o <outputFile.dts>] <inputFile.dts>  
- * 
- * Running example:
- * > build/Fraud3 -K 5 -o /tmp/princeton_training_reduced.dts ../Datasets/princeton_training.dts
+ * Converts a C-style string into an integer.
+ * @param text String to convert
+ * @param value Converted integer
+ * @return true if the conversion was correct, false otherwise
  */
-int main(int argc, char* argv[]) {
-    DataSet inputDataset, // Input dataset
-        outputDataset; // Output dataset with reduced dimensionality
+bool stringToInt(const char *text, int &value)
+{
+    char *end;
+    long result;
 
-    // Name of the output file (tests/output/output.dts by default)
-    string outputFileName="tests/output/output.dts";
-    int K = 5; // Number of clusters (5 by default)
-    Clustering clustering; // Clustering object
+    errno = 0;
+    result = strtol(text, &end, 10);
 
-    // Indicates if all the parameters starting with - has been read
-    bool hasBeenReadInitialParameters = false; 
-    int indexInputFile = -1; // index of the input file in argv
+    if (errno != 0 || *end != '\0' || result < INT_MIN || result > INT_MAX)
+    {
+        return false;
+    }
 
-    // Loop to process program arguments
+    value = static_cast<int>(result);
+    return true;
+}
 
-    // Load the input dataset from the given file
-    
-    // Set the location vector and K in the clustering object. Use the default
-    // seed value.
+int main(int argc, char *argv[])
+{
+    const int DEFAULT_K = 5;
+    const string DEFAULT_OUTPUT_FILE = "tests/output/output.dts";
 
-    // Run the clustering algorithm
-    
-    // Get the dataset with reduced dimensionality
+    int k = DEFAULT_K;
+    string inputFile = "";
+    string outputFile = DEFAULT_OUTPUT_FILE;
 
-    // Save the output dataset in the given file
-    
+    int i = 1;
+
+    while (i < argc && argv[i][0] == '-')
+    {
+        string option = argv[i];
+
+        if (option == "-K")
+        {
+            if (i + 1 >= argc)
+            {
+                showHelp(cerr, "Missing value for -K");
+                return 1;
+            }
+
+            if (!stringToInt(argv[i + 1], k))
+            {
+                showHelp(cerr, "Invalid value for -K");
+                return 1;
+            }
+
+            if (k <= 0)
+            {
+                showHelp(cerr, "K must be greater than 0");
+                return 1;
+            }
+
+            i += 2;
+        }
+        else if (option == "-o")
+        {
+            if (i + 1 >= argc)
+            {
+                showHelp(cerr, "Missing value for -o");
+                return 1;
+            }
+
+            outputFile = argv[i + 1];
+            i += 2;
+        }
+        else
+        {
+            showHelp(cerr, "Unknown option " + option);
+            return 1;
+        }
+    }
+
+    if (i >= argc)
+    {
+        showHelp(cerr, "Input file not provided");
+        return 1;
+    }
+
+    inputFile = argv[i];
+    i++;
+
+    if (i < argc)
+    {
+        showHelp(cerr, "Too many input files");
+        return 1;
+    }
+
+    try
+    {
+        DataSet inputDataSet;
+        inputDataSet.load(inputFile);
+
+        Clustering clustering;
+        clustering.set(inputDataSet.getVectorLocation(), k);
+        clustering.run();
+
+        DataSet reducedDataSet = inputDataSet.getReducedDataSet(clustering);
+        reducedDataSet.save(outputFile);
+    }
+    catch (const exception &e)
+    {
+        cerr << "ERROR: " << e.what() << endl;
+        return 1;
+    }
+
     return 0;
 }
