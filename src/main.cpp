@@ -12,12 +12,12 @@
  * Created on 24 de octubre de 2025, 9:27
  */
 
-#include <iostream>
-#include <string>
-#include <cstdlib>
 #include <cerrno>
 #include <climits>
+#include <cstdlib>
 #include <exception>
+#include <iostream>
+#include <string>
 
 #include "DataSet.h"
 #include "Clustering.h"
@@ -44,12 +44,6 @@ void showHelp(ostream &outputStream, const string &message)
     outputStream << endl;
 }
 
-/**
- * Converts a C-style string into an integer.
- * @param text String to convert
- * @param value Converted integer
- * @return true if the conversion was correct, false otherwise
- */
 bool stringToInt(const char *text, int &value)
 {
     char *end;
@@ -73,24 +67,23 @@ int main(int argc, char *argv[])
     const string DEFAULT_OUTPUT_FILE = "tests/output/output.dts";
 
     int k = DEFAULT_K;
-    string inputFile = "";
-    string outputFile = DEFAULT_OUTPUT_FILE;
+    string inputFileName;
+    string outputFileName = DEFAULT_OUTPUT_FILE;
+    int currentArgument = 1;
 
-    int i = 1;
-
-    while (i < argc && argv[i][0] == '-')
+    while (currentArgument < argc && argv[currentArgument][0] == '-')
     {
-        string option = argv[i];
+        string option = argv[currentArgument];
 
         if (option == "-K")
         {
-            if (i + 1 >= argc)
+            if (currentArgument + 1 >= argc)
             {
                 showHelp(cerr, "Missing value for -K");
                 return 1;
             }
 
-            if (!stringToInt(argv[i + 1], k))
+            if (!stringToInt(argv[currentArgument + 1], k))
             {
                 showHelp(cerr, "Invalid value for -K");
                 return 1;
@@ -102,18 +95,18 @@ int main(int argc, char *argv[])
                 return 1;
             }
 
-            i += 2;
+            currentArgument += 2;
         }
         else if (option == "-o")
         {
-            if (i + 1 >= argc)
+            if (currentArgument + 1 >= argc)
             {
                 showHelp(cerr, "Missing value for -o");
                 return 1;
             }
 
-            outputFile = argv[i + 1];
-            i += 2;
+            outputFileName = argv[currentArgument + 1];
+            currentArgument += 2;
         }
         else
         {
@@ -122,16 +115,16 @@ int main(int argc, char *argv[])
         }
     }
 
-    if (i >= argc)
+    if (currentArgument >= argc)
     {
         showHelp(cerr, "Input file not provided");
         return 1;
     }
 
-    inputFile = argv[i];
-    i++;
+    inputFileName = argv[currentArgument];
+    currentArgument++;
 
-    if (i < argc)
+    if (currentArgument < argc)
     {
         showHelp(cerr, "Too many input files");
         return 1;
@@ -140,18 +133,20 @@ int main(int argc, char *argv[])
     try
     {
         DataSet inputDataSet;
-        inputDataSet.load(inputFile);
-
+        DataSet outputDataSet;
         Clustering clustering;
+
+        inputDataSet.load(inputFileName);
+
         clustering.set(inputDataSet.getVectorLocation(), k);
         clustering.run();
 
-        DataSet reducedDataSet = inputDataSet.getReducedDataSet(clustering);
-        reducedDataSet.save(outputFile);
+        outputDataSet = inputDataSet.getReducedDataSet(clustering);
+        outputDataSet.save(outputFileName);
     }
-    catch (const exception &e)
+    catch (const exception &error)
     {
-        cerr << "ERROR: " << e.what() << endl;
+        cerr << "ERROR: " << error.what() << endl;
         return 1;
     }
 

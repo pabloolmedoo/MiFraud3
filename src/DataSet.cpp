@@ -1,5 +1,9 @@
 #include "DataSet.h"
 
+#include <fstream>
+#include <sstream>
+#include <stdexcept>
+
 using namespace std;
 
 const string DataSet::MAGIC_STRING_T = "MP-FRAUD_DATASET-T-1.0";
@@ -21,7 +25,28 @@ void DataSet::allocate(int numInstances, int numLocations)
 
         for (int i = 0; i < nInstances; i++)
         {
-            values[i] = new int[nLocations];
+            values[i] = nullptr;
+        }
+
+        try
+        {
+            for (int i = 0; i < nInstances; i++)
+            {
+                values[i] = new int[nLocations];
+            }
+        }
+        catch (...)
+        {
+            for (int i = 0; i < nInstances; i++)
+            {
+                delete[] values[i];
+            }
+
+            delete[] values;
+            values = nullptr;
+            nInstances = 0;
+            nLocations = 0;
+            throw;
         }
     }
 }
@@ -79,11 +104,14 @@ DataSet::DataSet(int nInstances, int nLocations)
     : values(nullptr),
       nInstances(0),
       nLocations(0),
-      labels(nInstances),
-      locations(nLocations)
+      labels(),
+      locations()
 {
-
     allocate(nInstances, nLocations);
+
+    labels = VectorInt(nInstances);
+    locations = VectorLocation(nLocations);
+
     initInstances(0);
     labels.assign(0);
 }
@@ -95,7 +123,6 @@ DataSet::DataSet(const DataSet &orig)
       labels(),
       locations()
 {
-
     copyFrom(orig);
 }
 
@@ -108,8 +135,19 @@ DataSet &DataSet::operator=(const DataSet &orig)
 {
     if (this != &orig)
     {
+        DataSet copy(orig);
+
         deallocate();
-        copyFrom(orig);
+
+        values = copy.values;
+        nInstances = copy.nInstances;
+        nLocations = copy.nLocations;
+        labels = copy.labels;
+        locations = copy.locations;
+
+        copy.values = nullptr;
+        copy.nInstances = 0;
+        copy.nLocations = 0;
     }
 
     return *this;
@@ -152,45 +190,45 @@ const VectorInt &DataSet::getVectorLabels() const
 
 string DataSet::toString() const
 {
-    ostringstream os;
+    ostringstream output;
 
-    os << nLocations << '\n';
+    output << nLocations << '\n';
 
     for (int i = 0; i < nLocations; i++)
     {
-        os << locations.at(i).toString() << '\n';
+        output << locations.at(i).toString() << '\n';
     }
 
-    os << nInstances << '\n';
+    output << nInstances << '\n';
 
     for (int i = 0; i < nInstances; i++)
     {
-        os << labels.at(i);
+        output << labels.at(i);
 
         if (i < nInstances - 1)
         {
-            os << ' ';
+            output << ' ';
         }
     }
 
-    os << '\n';
+    output << '\n';
 
     for (int i = 0; i < nInstances; i++)
     {
         for (int j = 0; j < nLocations; j++)
         {
-            os << values[i][j];
+            output << values[i][j];
 
             if (j < nLocations - 1)
             {
-                os << ' ';
+                output << ' ';
             }
         }
 
-        os << '\n';
+        output << '\n';
     }
 
-    return os.str();
+    return output.str();
 }
 
 void DataSet::setValue(int instanceIndex, int locationIndex, int value)
@@ -222,7 +260,6 @@ void DataSet::initInstances(int value)
 void DataSet::clear()
 {
     deallocate();
-
     labels.clear();
     locations.clear();
 }
@@ -257,12 +294,11 @@ void DataSet::load(const string &fileName)
 
     try
     {
-        string magic;
-        getline(input, magic);
+        string magicString;
+        getline(input, magicString);
 
-        if (magic != MAGIC_STRING_T)
+        if (magicString != MAGIC_STRING_T)
         {
-            clear();
             throw invalid_argument("Invalid magic string in dataset file");
         }
 
@@ -271,25 +307,21 @@ void DataSet::load(const string &fileName)
 
         if (!input)
         {
-            clear();
             throw ios_base::failure("Error reading number of locations");
         }
 
         if (numLocations < 0)
         {
-            clear();
             throw out_of_range("Negative number of locations");
         }
 
-        DataSet tmp;
-
-        tmp.locations = VectorLocation(numLocations);
+        VectorLocation readLocations(numLocations);
 
         for (int i = 0; i < numLocations; i++)
         {
-            Location loc;
-            loc.load(input);
-            tmp.locations.at(i) = loc;
+            Location location;
+            location.load(input);
+            readLocations.at(i) = location;
         }
 
         int numInstances;
@@ -297,19 +329,16 @@ void DataSet::load(const string &fileName)
 
         if (!input)
         {
-            clear();
             throw ios_base::failure("Error reading number of instances");
         }
 
         if (numInstances < 0)
         {
-            clear();
             throw out_of_range("Negative number of instances");
         }
 
-        tmp.deallocate();
-        tmp.allocate(numInstances, numLocations);
-        tmp.labels = VectorInt(numInstances);
+        DataSet readDataSet(numInstances, numLocations);
+        readDataSet.locations = readLocations;
 
         for (int i = 0; i < numInstances; i++)
         {
@@ -318,28 +347,29 @@ void DataSet::load(const string &fileName)
 
             if (!input)
             {
-                clear();
                 throw ios_base::failure("Error reading labels");
             }
 
-            tmp.labels.at(i) = label;
+            readDataSet.labels.at(i) = label;
         }
 
         for (int i = 0; i < numInstances; i++)
         {
             for (int j = 0; j < numLocations; j++)
             {
-                input >> tmp.values[i][j];
+                int value;
+                input >> value;
 
                 if (!input)
                 {
-                    clear();
                     throw ios_base::failure("Error reading dataset values");
                 }
+
+                readDataSet.values[i][j] = value;
             }
         }
 
-        *this = tmp;
+        *this = readDataSet;
     }
     catch (...)
     {
@@ -361,7 +391,6 @@ DataSet DataSet::getReducedDataSet(const Clustering &clustering) const
     }
 
     int k = clustering.getK();
-
     DataSet reduced(nInstances, k);
 
     reduced.locations = clustering.getCentroids();
@@ -371,6 +400,11 @@ DataSet DataSet::getReducedDataSet(const Clustering &clustering) const
     for (int col = 0; col < nLocations; col++)
     {
         int clusterNumber = clustering.clusterOf(col);
+
+        if (clusterNumber < 0 || clusterNumber >= k)
+        {
+            throw out_of_range("Invalid cluster number");
+        }
 
         for (int row = 0; row < nInstances; row++)
         {
